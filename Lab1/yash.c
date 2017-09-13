@@ -7,21 +7,7 @@
 #include <string.h>
 
 enum BUILTIN_COMMANDS { NO_SUCH_BUILTIN=0, EXIT, FG, BG, JOBS };
-
-void printPrompt(void) {
-	char cwd[256];
-	char *username = getenv("USER");
-
-	char hostname[1024];
-	hostname[1023] = '\0';
-	gethostname(hostname, 1023);
-
-	if(getcwd(cwd, sizeof(cwd)) != NULL) {
-		printf("%s@%s:~%s$ " , username, hostname, cwd);
-	} else {
-		fprintf(stderr, "%s", "Error getting directory.\n");
-	}
-}
+int pipefd[2];
 
 int isBuiltInCommand(char *cmd) {
 	if(strncmp(cmd, "exit", strlen("exit")) == 0) {
@@ -56,9 +42,19 @@ int main(int argc, char **argv) {
 		else {
 			cpid = fork();
 			if(cpid == 0) {
-				char *myargs[2];
-				myargs[0] = strdup(cmd);
-				myargs[1] = NULL;	
+				char *myargs[256];
+				int i = 0;
+				char *p = strtok(cmd, " ");
+				
+				while(p != NULL) {
+					if(*p == '>') {
+						p = strtok(NULL, " ");
+						FILE* fp = fopen(p, "w");					
+					}
+					myargs[i++] = p;
+					p = strtok(NULL, " ");
+				}
+				myargs[i] = NULL;	
 				execvp(myargs[0], myargs);
 			}
 			else {
