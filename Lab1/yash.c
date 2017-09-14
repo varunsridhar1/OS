@@ -28,6 +28,7 @@ int isBuiltInCommand(char *cmd) {
 int main(int argc, char **argv) {
 	char cmd[256];						// command to execute
 	int cpid;
+	int fileNo;
 	while(1) {	
 		printf("%s ", ">yash");
 
@@ -49,11 +50,32 @@ int main(int argc, char **argv) {
 				while(p != NULL) {
 					if(*p == '>') {
 						p = strtok(NULL, " ");
-						FILE* fp = fopen(p, "w");					
+						FILE* fp = fopen(p, "w");
+						fileNo = fileno(fp);
+						dup2(fileNo, STDOUT_FILENO);
+						fclose(fp);
+						break;
+					}
+					else if(*p == '<') {
+						p = strtok(NULL, " ");
+						FILE* fp = fopen(p, "r");
+						if(fp) {
+							fileNo = fileno(fp);
+							dup2(fileNo, STDIN_FILENO);
+							char* arg;
+							fscanf(fp, "%s", arg);
+							myargs[i++] = arg;
+							fclose(fp);
+							break;
+						}
+						else {
+							fprintf(stderr, "%s\n", "No such file or directory");
+							break;
+						}
 					}
 					myargs[i++] = p;
 					p = strtok(NULL, " ");
-				}
+				}	
 				myargs[i] = NULL;	
 				execvp(myargs[0], myargs);
 			}
