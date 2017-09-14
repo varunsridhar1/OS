@@ -7,7 +7,7 @@
 #include <string.h>
 
 enum BUILTIN_COMMANDS { NO_SUCH_BUILTIN=0, EXIT, FG, BG, JOBS };
-int pipefd[2];
+int run;
 
 int isBuiltInCommand(char *cmd) {
 	if(strncmp(cmd, "exit", strlen("exit")) == 0) {
@@ -31,6 +31,7 @@ int main(int argc, char **argv) {
 	int fileNo;
 	while(1) {	
 		printf("%s ", ">yash");
+		run = 1;
 
 		fgets(cmd, sizeof(cmd), stdin);
 		if(strcmp(cmd, "") != 0) {
@@ -70,14 +71,26 @@ int main(int argc, char **argv) {
 						}
 						else {
 							fprintf(stderr, "%s\n", "No such file or directory");
+							run = 0;
 							break;
 						}
+					}
+					else if(*p == '2' && *(p++) == '>') {
+						p = strtok(NULL, " ");
+						FILE* fp = fopen(p, "w");
+						fileNo = fileno(fp);
+						dup2(fileNo, STDERR_FILENO);
+						fclose(fp);
+						break;
 					}
 					myargs[i++] = p;
 					p = strtok(NULL, " ");
 				}	
 				myargs[i] = NULL;	
-				execvp(myargs[0], myargs);
+				if(run) {
+					execvp(myargs[0], myargs);
+				}
+				run = 1;
 			}
 			else {
 				wait(NULL);
