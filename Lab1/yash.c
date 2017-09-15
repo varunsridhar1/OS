@@ -6,13 +6,11 @@
 #include <sys/wait.h>
 #include <string.h>
 
-enum BUILTIN_COMMANDS { NO_SUCH_BUILTIN=0, EXIT, FG, BG, JOBS };
+enum BUILTIN_COMMANDS { NO_SUCH_BUILTIN=0, FG, BG, JOBS };
 int run;
+int addargs;
 
 int isBuiltInCommand(char *cmd) {
-	if(strncmp(cmd, "exit", strlen("exit")) == 0) {
-		return EXIT;	
-	}
 	if(strncmp(cmd, "fg", strlen("fg")) == 0) {
 		return FG;
 	}
@@ -30,15 +28,16 @@ int main(int argc, char **argv) {
 	int cpid;
 	int fileNo;
 	while(1) {	
-		printf("%s ", ">yash");
+		printf("%s ", "#");
 		run = 1;
+		addargs = 1;
 
 		fgets(cmd, sizeof(cmd), stdin);
 		if(strcmp(cmd, "") != 0) {
 			cmd[strlen(cmd) - 1] = '\0';
 		}
 
-		if(isBuiltInCommand(cmd) == EXIT) {
+		if(isBuiltInCommand(cmd) == FG) {
 			exit(0);
 		}
 		else {
@@ -55,48 +54,55 @@ int main(int argc, char **argv) {
 						fileNo = fileno(fp);
 						dup2(fileNo, STDOUT_FILENO);
 						fclose(fp);
-						break;
+						addargs = 0;
 					}
 					else if(*p == '<') {
 						p = strtok(NULL, " ");
 						FILE* fp = fopen(p, "r");
 						if(fp) {
 							fileNo = fileno(fp);
-							dup2(fileNo, STDIN_FILENO);
+							//dup2(fileNo, STDIN_FILENO);
 							char* arg;
 							fscanf(fp, "%s", arg);
 							myargs[i++] = arg;
 							fclose(fp);
-							break;
+							addargs = 0;
 						}
 						else {
-							fprintf(stderr, "%s\n", "No such file or directory");
+							fprintf(stderr, "%s %s\n", "Invalid file:", p);
+							addargs = 0;
 							run = 0;
-							break;
 						}
 					}
-					else if(*p == '2' && *(p++) == '>') {
+					else if(*p == '2' && *(++p) == '>') {
 						p = strtok(NULL, " ");
 						FILE* fp = fopen(p, "w");
 						fileNo = fileno(fp);
 						dup2(fileNo, STDERR_FILENO);
 						fclose(fp);
-						break;
+						addargs = 0;
 					}
-					myargs[i++] = p;
+					if(addargs) {
+						myargs[i++] = p;
+					}
 					p = strtok(NULL, " ");
 				}	
-				myargs[i] = NULL;	
+				myargs[i] = NULL;
 				if(run) {
-					execvp(myargs[0], myargs);
+					if(execvp(myargs[0], myargs) < 0) {
+						printf("%s: %s: %s\n", "yash", myargs[0], "command not found");
+					}
 				}
-				run = 1;
 			}
 			else {
-				wait(NULL);
+				if(run) {
+					wait(NULL);
+				}
 			}
 				
 		}
+		run = 1;
+		addargs = 1;
 	}
 }
 

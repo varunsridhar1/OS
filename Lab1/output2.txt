@@ -1,0 +1,8 @@
+total 28
+-rw-rw-r-- 1 varun varun   160 Sep 14 20:29 cat.txt
+-rw-rw-r-- 1 varun varun     0 Sep 14 23:30 error.txt
+-rw-rw-r-- 1 varun varun     0 Sep 15 00:28 hi
+-rw-rw-r-- 1 varun varun     4 Sep 15 00:10 hi.txt
+-rw-rw-r-- 1 varun varun     0 Sep 15 00:31 output.txt
+-rwxrwxr-x 1 varun varun 13592 Sep 15 00:31 yash
+-rw-rw-r-- 1 varun varun  2085 Sep 15 00:30 yash.c
