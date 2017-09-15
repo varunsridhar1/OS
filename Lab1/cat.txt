@@ -1,4 +1,0 @@
-total 20
--rw-rw-r-- 1 varun varun     0 Sep 14 20:29 hi.txt
--rwxrwxr-x 1 varun varun 13592 Sep 14 20:27 yash
--rw-rw-r-- 1 varun varun  2086 Sep 14 20:25 yash.c

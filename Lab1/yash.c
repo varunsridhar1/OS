@@ -24,7 +24,7 @@ int isBuiltInCommand(char *cmd) {
 }
 
 int main(int argc, char **argv) {
-	char cmd[256];						// command to execute
+	char *cmd = (char*) malloc(sizeof(char)*2001);						// command to execute
 	int cpid;
 	int fileNo;
 	while(1) {	
@@ -32,7 +32,7 @@ int main(int argc, char **argv) {
 		run = 1;
 		addargs = 1;
 
-		fgets(cmd, sizeof(cmd), stdin);
+		fgets(cmd, 2001, stdin);
 		if(strcmp(cmd, "") != 0) {
 			cmd[strlen(cmd) - 1] = '\0';
 		}
@@ -43,7 +43,7 @@ int main(int argc, char **argv) {
 		else {
 			cpid = fork();
 			if(cpid == 0) {
-				char *myargs[256];
+				char **myargs = (char**) malloc(sizeof(char*) * 10);
 				int i = 0;
 				char *p = strtok(cmd, " ");
 				
@@ -60,10 +60,10 @@ int main(int argc, char **argv) {
 						p = strtok(NULL, " ");
 						FILE* fp = fopen(p, "r");
 						if(fp) {
-							fileNo = fileno(fp);
+							//fileNo = fileno(fp);
 							//dup2(fileNo, STDIN_FILENO);
 							char* arg;
-							fscanf(fp, "%s", arg);
+							int a = fscanf(fp, "%s", arg);
 							myargs[i++] = arg;
 							fclose(fp);
 							addargs = 0;
@@ -101,8 +101,6 @@ int main(int argc, char **argv) {
 			}
 				
 		}
-		run = 1;
-		addargs = 1;
 	}
 }
 
