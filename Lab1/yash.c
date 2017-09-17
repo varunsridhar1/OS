@@ -9,6 +9,9 @@
 enum BUILTIN_COMMANDS { NO_SUCH_BUILTIN=0, FG, BG, JOBS };
 int run;
 int addargs;
+int pipefd[2];
+char* pipeCommand;
+int pipeFlag;
 
 int isBuiltInCommand(char *cmd) {
 	if(strncmp(cmd, "fg", strlen("fg")) == 0) {
@@ -27,10 +30,12 @@ int main(int argc, char **argv) {
 	char *cmd = (char*) malloc(sizeof(char)*2001);						// command to execute
 	int cpid;
 	int fileNo;
+	char **otherargs = (char**) malloc(sizeof(char*) * 10);
 	while(1) {	
 		printf("%s ", "#");
 		run = 1;
 		addargs = 1;
+		pipeFlag = 0;
 
 		fgets(cmd, 2001, stdin);
 		if(strcmp(cmd, "") != 0) {
@@ -41,6 +46,10 @@ int main(int argc, char **argv) {
 			exit(0);
 		}
 		else {
+			if(pipe(pipefd) == -1) {
+				perror("pipe");
+				exit(EXIT_FAILURE);
+			}
 			cpid = fork();
 			if(cpid == 0) {
 				char **myargs = (char**) malloc(sizeof(char*) * 10);
@@ -82,8 +91,19 @@ int main(int argc, char **argv) {
 						fclose(fp);
 						addargs = 0;
 					}
+
+					else if(*p == '|') {
+						setsid();
+						close(pipefd[0]);
+						dup2(pipefd[1], STDOUT_FILENO);
+						pipeFlag = 1;
+						addargs = 0;
+						// set global substring with all text on right side of |
+					}
+
 					if(addargs) {
 						myargs[i++] = p;
+						pipeCommand
 					}
 					p = strtok(NULL, " ");
 				}	
@@ -94,10 +114,16 @@ int main(int argc, char **argv) {
 					}
 				}
 			}
-			else {
-				if(run) {
-					wait(NULL);
+			else {	// Parent
+				if(pipeFlag) {
+					cpid2 = fork();
+					if(cpid2 == 0) {
+						// use global substring and loop through and put in args array
+						dup2(pipefd[0], STDIN_FILENO);
+						// execvp
+					}
 				}
+				
 			}
 				
 		}

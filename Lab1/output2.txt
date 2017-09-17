@@ -1,6 +1,6 @@
-total 44
--rwxrwxr-x 1 varun varun 16680 Sep 15 12:12 a.out
--rw-rw-r-- 1 varun varun    12 Sep 15 12:09 input.txt
--rw-rw-r-- 1 varun varun     0 Sep 15 12:31 output.txt
--rwxrwxr-x 1 varun varun 13648 Sep 15 12:30 yash
--rw-rw-r-- 1 varun varun  2153 Sep 15 12:30 yash.c
+total 24
+-rw-rw-r-- 1 varun varun    12 Sep 15 15:20 input.txt
+-rw-rw-r-- 1 varun varun     0 Sep 15 15:19 output2.txt
+-rw-rw-r-- 1 varun varun     0 Sep 15 15:20 output.txt
+-rwxrwxr-x 1 varun varun 13648 Sep 15 15:18 yash
+-rw-rw-r-- 1 varun varun  2128 Sep 15 15:07 yash.c
