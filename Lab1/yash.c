@@ -14,8 +14,11 @@ char* pipeCommand;
 int pipeFlag;
 int outputRedirect1, outputRedirect2;
 int errorRedirect1, errorRedirect2;
+int inputRedirect1, inputRedirect2;
 FILE* fp1;
 FILE* fp2;
+FILE* finput1;
+FILE* finput2;
 int cpid;
 int cpid2;
 
@@ -74,12 +77,9 @@ int main(int argc, char **argv) {
 				}
 				else if(*p == '<') {
 					p = strtok(NULL, " ");
-					FILE* fp = fopen(p, "r");
-					if(fp1) {
-						char* arg;
-						int a = fscanf(fp, "%s", arg);
-						myargs[i++] = arg;
-						fclose(fp);
+					finput1 = fopen(p, "r");
+					if(finput1) {
+						inputRedirect1 = fileno(finput1);
 						addargs1 = 0;
 					}
 					else {
@@ -112,12 +112,9 @@ int main(int argc, char **argv) {
 						}
 						else if(*pipecmd == '<') {
 							pipecmd = strtok(NULL, " ");
-							FILE* fp = fopen(p, "r");
-							if(fp) {
-								char* arg;
-								int a = fscanf(fp, "%s", arg);
-								otherargs[j++] = arg;
-								fclose(fp);
+							finput2 = fopen(p, "r");
+							if(finput2) {
+								inputRedirect2 = fileno(finput2);
 								addargs2 = 0;
 							}
 							else {
@@ -159,7 +156,11 @@ int main(int argc, char **argv) {
 					if(outputRedirect1 > 0) {
 						dup2(outputRedirect1, STDOUT_FILENO);
 						fclose(fp1);
-					}		
+					}
+					if(inputRedirect1 > 0) {
+						dup2(inputRedirect1, STDIN_FILENO);
+						fclose(finput1);
+					}
 					if(errorRedirect1 > 0) {
 						dup2(errorRedirect1, STDERR_FILENO);
 						fclose(fp1);
@@ -179,6 +180,10 @@ int main(int argc, char **argv) {
 								if(outputRedirect2 > 0) {
 									dup2(outputRedirect2, STDOUT_FILENO);
 									fclose(fp2);
+								}
+								if(inputRedirect2 > 0) {
+									dup2(inputRedirect2, STDIN_FILENO);
+									fclose(finput2);
 								}
 								if(errorRedirect2 > 0) {
 									dup2(errorRedirect2, STDERR_FILENO);
