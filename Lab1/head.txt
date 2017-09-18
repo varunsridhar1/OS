@@ -1,3 +1,3 @@
-a.out
-error.txt
-head.txt
+total 64
+-rwxrwxr-x 1 varun varun 17888 Sep 17 23:41 a.out
+-rw-rw-r-- 1 varun varun     0 Sep 17 23:41 error.txt

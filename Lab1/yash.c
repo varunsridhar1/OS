@@ -9,6 +9,10 @@
 #define MAXINPUT 2000
 #define MAXJOBS 100
 
+#define RUNNING 1
+#define STOPPED 2
+#define DONE 3
+
 enum BUILTIN_COMMANDS { NO_SUCH_BUILTIN=0, FG, BG, JOBS };
 int run1, run2;
 int addargs1, addargs2;
@@ -24,13 +28,19 @@ FILE* finput1;
 FILE* finput2;
 int cpid;
 int cpid2;
+int jobCount = 0;
 
-struct job_t {
+typedef struct job {
 	pid_t pid;
 	int jid;
 	int state;
-};
-struct job_t jobs[MAXJOBS];
+	int fg;
+	char cmdLine[MAXINPUT];
+	struct job * next;
+} job_t;
+
+job_t *head = NULL;
+job_t *current = NULL;
 
 static void sig_int(int signo) {
 	printf("Sending signals to group:%d\n", cpid);
@@ -62,6 +72,7 @@ int isBuiltInCommand(char *cmd) {
 
 int main(int argc, char **argv) {
 	char *cmd = (char*) malloc(sizeof(char)*2001);						// command to execute
+	char *cmdCopy = (char*) malloc(sizeof(char)*2001);
 	char *pipecmd = (char*) malloc(sizeof(char)*20);
 	while(1) {	
 		printf("%s ", "#");
@@ -80,8 +91,31 @@ int main(int argc, char **argv) {
 			cmd[strlen(cmd) - 1] = '\0';
 		}
 
-		if(isBuiltInCommand(cmd) == FG) {
-			exit(0);
+		strcpy(cmdCopy, cmd);
+
+		if(isBuiltInCommand(cmd) == JOBS) {
+			job_t *temp = head;
+			while(temp != NULL) {
+				printf("[%d]", temp->jid);
+				if(temp->fg) {
+					printf("+ ");
+				}
+				else {
+					printf("- ");
+				}
+
+				if(temp->state == RUNNING) {
+					printf("Running\t");
+				}
+				else if(temp->state = STOPPED) {
+					printf("Stopped\t");
+				}
+				else {
+					printf("Done\t");
+				}
+				printf("%s\n", temp->cmdLine);
+				temp = temp->next;
+			}
 		}
 		else {
 			if(pipe(pipefd) == -1) {
@@ -190,11 +224,29 @@ int main(int argc, char **argv) {
 						dup2(errorRedirect1, STDERR_FILENO);
 						fclose(fp1);
 					}
+
 					if(execvp(myargs[0], myargs) < 0) {
 						fprintf(stderr, "%s: %s: %s\n", "yash", myargs[0], "command not found");
 					}
 				}
 				else {
+					job_t *job = malloc(sizeof(job_t));				// add job to struct list
+					job->pid = cpid;
+					job->jid = ++jobCount;
+					job->fg = 1;
+					job->state = RUNNING;
+					job->next = NULL;
+					strcpy(job->cmdLine, cmdCopy);
+					if(head == NULL) {
+						head = job;
+						current = head;
+					}
+					else {
+						current->next = job;
+						current = current->next;
+					}
+
+
 					if(pipeFlag) {
 						if(run2) {
 							cpid2 = fork();
