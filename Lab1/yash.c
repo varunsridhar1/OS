@@ -6,6 +6,9 @@
 #include <sys/wait.h>
 #include <string.h>
 
+#define MAXINPUT 2000
+#define MAXJOBS 100
+
 enum BUILTIN_COMMANDS { NO_SUCH_BUILTIN=0, FG, BG, JOBS };
 int run1, run2;
 int addargs1, addargs2;
@@ -22,6 +25,28 @@ FILE* finput2;
 int cpid;
 int cpid2;
 
+struct job_t {
+	pid_t pid;
+	int jid;
+	int state;
+};
+struct job_t jobs[MAXJOBS];
+
+static void sig_int(int signo) {
+	printf("Sending signals to group:%d\n", cpid);
+	kill(-cpid, SIGINT);
+}
+
+static void sig_tstp(int signo) {
+	printf("Sending SIGTSTP to group:%d\n", cpid);
+	kill(-cpid, SIGTSTP);
+}
+
+static void sig_chld(int signo) {
+	printf("Sending SIGCHLD to group:%d\n", cpid);
+	kill(-cpid, SIGCHLD);
+}
+
 int isBuiltInCommand(char *cmd) {
 	if(strncmp(cmd, "fg", strlen("fg")) == 0) {
 		return FG;
@@ -36,7 +61,7 @@ int isBuiltInCommand(char *cmd) {
 }
 
 int main(int argc, char **argv) {
-	char *cmd = (char*) malloc(sizeof(char)*1001);						// command to execute
+	char *cmd = (char*) malloc(sizeof(char)*2001);						// command to execute
 	char *pipecmd = (char*) malloc(sizeof(char)*20);
 	while(1) {	
 		printf("%s ", "#");
@@ -199,6 +224,8 @@ int main(int argc, char **argv) {
 						}
 					}
 					wait(NULL);
+					//signal(SIGINT, sig_int);
+					//signal(SIGTSTP, sig_tstp);
 				}
 			}
 		}
