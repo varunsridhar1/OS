@@ -29,6 +29,7 @@ FILE* finput2;
 int cpid;
 int cpid2;
 int status;
+int bg;
 int jobCount = 0;
 
 typedef struct job {
@@ -82,6 +83,7 @@ int main(int argc, char **argv) {
 		addargs1 = 1;
 		addargs2 = 1;
 		pipeFlag = 0;
+		bg = 0;
 		outputRedirect1 = -1;
 		errorRedirect1 = -1;
 		outputRedirect2 = -1;
@@ -152,6 +154,11 @@ int main(int argc, char **argv) {
 					p = strtok(NULL, " ");
 					fp1 = fopen(p, "w");
 					errorRedirect1 = fileno(fp1);
+					addargs1 = 0;
+				}
+
+				else if(*p == '&') {
+					bg = 1;
 					addargs1 = 0;
 				}
 
@@ -234,7 +241,12 @@ int main(int argc, char **argv) {
 					job_t *job = malloc(sizeof(job_t));				// add job to struct list
 					job->pid = cpid;
 					job->jid = ++jobCount;
-					job->fg = 1;
+					if(bg) {
+						job->fg = 0;
+					}
+					else {
+						job->fg = 1;
+					}
 					job->state = RUNNING;
 					job->next = NULL;
 					strcpy(job->cmdLine, cmdCopy);
@@ -246,7 +258,6 @@ int main(int argc, char **argv) {
 						current->next = job;
 						current = current->next;
 					}
-
 
 					if(pipeFlag) {
 						if(run2) {
@@ -273,13 +284,18 @@ int main(int argc, char **argv) {
 							}
 						}
 					}
-					if(signal(SIGINT, sig_int) == SIG_ERR) {
-						printf("Signal(SIGINT) error\n");
-					}
+					//if(signal(SIGINT, sig_int) == SIG_ERR) {
+					//	printf("Signal(SIGINT) error\n");
+					//}
 					if(signal(SIGTSTP, sig_tstp) == SIG_ERR) {
 						printf("Signal(SIGTSTP) error\n");
 					}
-					waitpid(-1, &status, WUNTRACED | WCONTINUED);
+					if(!bg) {
+						waitpid(-1, &status, WUNTRACED | WCONTINUED);
+					}
+					else {
+						waitpid(-1, &status, WNOWAIT | WCONTINUED);
+					}
 				}
 			}
 		}
