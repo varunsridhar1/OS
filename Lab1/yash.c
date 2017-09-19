@@ -7,7 +7,7 @@
 #include <string.h>
 
 #define MAXINPUT 2000
-#define MAXJOBS 100
+#define MAXJOBS 101
 
 #define RUNNING 1
 #define STOPPED 2
@@ -37,25 +37,36 @@ typedef struct job {
 	int jid;
 	int state;
 	int fg;
-	char cmdLine[MAXINPUT];
-	struct job * next;
+	int alive;
+	char cmdLine[MAXJOBS];
 } job_t;
 
-job_t *head = NULL;
-job_t *current = NULL;
+job_t jobs[MAXJOBS];
 
 static void sig_int(int signo) {
-	printf("Sending signals to group:%d\n", cpid);
-	kill(-cpid, SIGKILL);
+	kill(-cpid, SIGINT);
 }
 
 static void sig_tstp(int signo) {
-	printf("Sending SIGTSTP to group:%d\n", cpid);
+	printf("\n");
+	//int index = 1;
+	//while(jobs[index].pid != cpid) {
+	//	index++;
+	//}
+	//jobs[index].state = STOPPED;
 	kill(-cpid, SIGTSTP);
 }
 
 static void sig_chld(int signo) {
-	printf("Sending SIGCHLD to group:%d\n", cpid);
+	//pid_t p;
+	//int status;
+	//int index = 1;
+	//p = waitpid(-1, &status, 0);
+	//printf("%d\n", p);
+	//while(jobs[index].pid != p) {
+	//	index++;
+	//}
+	//jobs[index].alive = 0;
 	kill(-cpid, SIGCHLD);
 }
 
@@ -73,6 +84,15 @@ int isBuiltInCommand(char *cmd) {
 }
 
 int main(int argc, char **argv) {
+	if(signal(SIGINT, sig_int) == SIG_ERR) {
+		printf("Signal(SIGINT) error\n");
+	}
+	if(signal(SIGTSTP, sig_tstp) == SIG_ERR) {
+		printf("Signal(SIGTSTP) error\n");
+	}
+	if(signal(SIGCHLD, sig_chld) == SIG_ERR) {
+		printf("Signal(SIGCHLD) error\n");
+	}
 	char *cmd = (char*) malloc(sizeof(char)*2001);						// command to execute
 	char *cmdCopy = (char*) malloc(sizeof(char)*2001);
 	char *pipecmd = (char*) malloc(sizeof(char)*20);
@@ -89,7 +109,10 @@ int main(int argc, char **argv) {
 		outputRedirect2 = -1;
 		errorRedirect2 = -1;
 
-		fgets(cmd, 2001, stdin);
+		if(fgets(cmd, 2001, stdin) == NULL) {
+			printf("\n");
+			exit(1);
+		}
 		if(strcmp(cmd, "") != 0) {
 			cmd[strlen(cmd) - 1] = '\0';
 		}
@@ -97,27 +120,25 @@ int main(int argc, char **argv) {
 		strcpy(cmdCopy, cmd);
 
 		if(isBuiltInCommand(cmd) == JOBS) {
-			job_t *temp = head;
-			while(temp != NULL) {
-				printf("[%d]", temp->jid);
-				if(temp->fg) {
-					printf("+ ");
-				}
-				else {
-					printf("- ");
-				}
+			for(int i = 1; i <= jobCount; i++) {
+				if(jobs[i].alive) {
+					printf("[%d]", jobs[i].jid);
+					if(jobs[i].fg) {
+						printf("+ ");
+					}
+					else {
+						printf("- ");
+					}
 
-				if(temp->state == RUNNING) {
-					printf("Running\t");
+					if(jobs[i].state == RUNNING) {
+						printf("Running\t");
+					}
+					else if(jobs[i].state == STOPPED) {
+						printf("Stopped\t");
+					}
+
+					printf("%s\n", jobs[i].cmdLine);
 				}
-				else if(temp->state = STOPPED) {
-					printf("Stopped\t");
-				}
-				else {
-					printf("Done\t");
-				}
-				printf("%s\n", temp->cmdLine);
-				temp = temp->next;
 			}
 		}
 		else {
@@ -216,7 +237,7 @@ int main(int argc, char **argv) {
 				cpid = fork();
 				if(cpid == 0) { // child 1
 					if(pipeFlag) {
-						setsid();
+						setpgrp();
 						close(pipefd[0]);
 						dup2(pipefd[1], STDOUT_FILENO);
 					}
@@ -238,26 +259,19 @@ int main(int argc, char **argv) {
 					}
 				}
 				else {
-					job_t *job = malloc(sizeof(job_t));				// add job to struct list
-					job->pid = cpid;
-					job->jid = ++jobCount;
+					job_t job;				// add job to struct list
+					job.pid = cpid;
+					job.jid = ++jobCount;
 					if(bg) {
-						job->fg = 0;
+						job.fg = 0;
 					}
 					else {
-						job->fg = 1;
+						job.fg = 1;
 					}
-					job->state = RUNNING;
-					job->next = NULL;
-					strcpy(job->cmdLine, cmdCopy);
-					if(head == NULL) {
-						head = job;
-						current = head;
-					}
-					else {
-						current->next = job;
-						current = current->next;
-					}
+					job.alive = 1;
+					job.state = RUNNING;
+					strcpy(job.cmdLine, cmdCopy);
+					jobs[jobCount] = job;
 
 					if(pipeFlag) {
 						if(run2) {
@@ -282,19 +296,33 @@ int main(int argc, char **argv) {
 									fprintf(stderr, "%s: %s: %s\n", "yash", otherargs[0], "command not found");
 								}
 							}
+							else {
+								if(signal(SIGINT, sig_int) == SIG_ERR) {
+									printf("Signal(SIGINT) error\n");
+								}
+								if(signal(SIGTSTP, sig_tstp) == SIG_ERR) {
+									printf("Signal(SIGTSTP) error\n");
+								}
+								if(signal(SIGCHLD, sig_chld) == SIG_ERR) {
+									printf("Signal(SIGCHLD) error\n");
+								}
+								if(!bg) {
+									waitpid(cpid, &status, WUNTRACED | WCONTINUED);
+								}
+							}
 						}
 					}
-					//if(signal(SIGINT, sig_int) == SIG_ERR) {
-					//	printf("Signal(SIGINT) error\n");
-					//}
+					if(signal(SIGINT, sig_int) == SIG_ERR) {
+						printf("Signal(SIGINT) error\n");
+					}
 					if(signal(SIGTSTP, sig_tstp) == SIG_ERR) {
 						printf("Signal(SIGTSTP) error\n");
 					}
-					if(!bg) {
-						waitpid(-1, &status, WUNTRACED | WCONTINUED);
+					if(signal(SIGCHLD, sig_chld) == SIG_ERR) {
+						printf("Signal(SIGCHLD) error\n");
 					}
-					else {
-						waitpid(-1, &status, WNOWAIT | WCONTINUED);
+					if(!bg) {
+						waitpid(cpid, &status, WUNTRACED | WCONTINUED);
 					}
 				}
 			}
