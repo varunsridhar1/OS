@@ -28,6 +28,7 @@ FILE* finput1;
 FILE* finput2;
 int cpid;
 int cpid2;
+int status;
 int jobCount = 0;
 
 typedef struct job {
@@ -44,7 +45,7 @@ job_t *current = NULL;
 
 static void sig_int(int signo) {
 	printf("Sending signals to group:%d\n", cpid);
-	kill(-cpid, SIGINT);
+	kill(-cpid, SIGKILL);
 }
 
 static void sig_tstp(int signo) {
@@ -171,7 +172,7 @@ int main(int argc, char **argv) {
 						}
 						else if(*pipecmd == '<') {
 							pipecmd = strtok(NULL, " ");
-							finput2 = fopen(p, "r");
+							finput2 = fopen(pipecmd, "r");
 							if(finput2) {
 								inputRedirect2 = fileno(finput2);
 								addargs2 = 0;
@@ -182,8 +183,8 @@ int main(int argc, char **argv) {
 								run2 = 0;
 							}
 						}
-						else if(*p == '2' && *(++p) == '>') {
-							p = strtok(NULL, " ");
+						else if(*pipecmd == '2' && *(++pipecmd) == '>') {
+							pipecmd = strtok(NULL, " ");
 							fp2 = fopen(p, "w");
 							errorRedirect2 = fileno(fp2);
 							addargs2 = 0;
@@ -270,14 +271,15 @@ int main(int argc, char **argv) {
 									fprintf(stderr, "%s: %s: %s\n", "yash", otherargs[0], "command not found");
 								}
 							}
-							else {
-								wait(NULL);
-							}
 						}
 					}
-					wait(NULL);
-					//signal(SIGINT, sig_int);
-					//signal(SIGTSTP, sig_tstp);
+					if(signal(SIGINT, sig_int) == SIG_ERR) {
+						printf("Signal(SIGINT) error\n");
+					}
+					if(signal(SIGTSTP, sig_tstp) == SIG_ERR) {
+						printf("Signal(SIGTSTP) error\n");
+					}
+					waitpid(-1, &status, WUNTRACED | WCONTINUED);
 				}
 			}
 		}
