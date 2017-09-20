@@ -31,6 +31,7 @@ int cpid2;
 int status;
 int bg;
 int jobCount = 0;
+char *cmdCopy;
 
 typedef struct job {
 	pid_t pid;
@@ -38,39 +39,53 @@ typedef struct job {
 	int state;
 	int fg;
 	int alive;
-	char cmdLine[MAXJOBS];
+	char cmdLine[MAXINPUT];
 } job_t;
 
 job_t jobs[MAXJOBS];
+job_t bgJobs[MAXJOBS];
 
 static void sig_int(int signo) {
-	kill(-cpid, SIGINT);
+	printf("\n");
+	if(cpid > 0) {
+		kill(-cpid, SIGINT);
+	}
 }
 
 static void sig_tstp(int signo) {
 	printf("\n");
-	//int index = 1;
-	//while(jobs[index].pid != cpid) {
-	//	index++;
-	//}
-	//jobs[index].state = STOPPED;
-	kill(-cpid, SIGTSTP);
+	if(cpid > 0) {
+		job_t job;				// add job to struct list
+		job.pid = cpid;
+		job.jid = ++jobCount;
+		job.fg = 0;
+		job.alive = 1;
+		job.state = STOPPED;
+		strcpy(job.cmdLine, cmdCopy);
+		jobs[jobCount] = job;
+		kill(-cpid, SIGTSTP);
+	}
 }
 
 static void sig_chld(int signo) {
-	//pid_t p;
-	//int status;
-	//int index = 1;
-	//p = waitpid(-1, &status, 0);
-	//printf("%d\n", p);
-	//while(jobs[index].pid != p) {
-	//	index++;
-	//}
-	//jobs[index].alive = 0;
-	kill(-cpid, SIGCHLD);
+	//printf("in sigchld handler\n");
+	pid_t p;
+	int status;
+	int index = 1;
+	while((p = waitpid(-1, &status, WNOHANG)) > 0) {
+		while(jobs[index].pid != p && index <= jobCount) {
+			index++;
+		}
+		if(jobs[index].pid == p) {
+			jobs[index].alive = 0;
+			jobs[index].state = DONE;
+		}
+	}
+	//kill(-cpid, SIGCHLD);
 }
 
 int isBuiltInCommand(char *cmd) {
+
 	if(strncmp(cmd, "fg", strlen("fg")) == 0) {
 		return FG;
 	}
@@ -94,7 +109,7 @@ int main(int argc, char **argv) {
 		printf("Signal(SIGCHLD) error\n");
 	}
 	char *cmd = (char*) malloc(sizeof(char)*2001);						// command to execute
-	char *cmdCopy = (char*) malloc(sizeof(char)*2001);
+	cmdCopy = (char*) malloc(sizeof(char)*2001);
 	char *pipecmd = (char*) malloc(sizeof(char)*20);
 	while(1) {	
 		printf("%s ", "#");
@@ -111,8 +126,19 @@ int main(int argc, char **argv) {
 
 		if(fgets(cmd, 2001, stdin) == NULL) {
 			printf("\n");
+			kill(0, SIGKILL);
 			exit(1);
 		}
+
+		if(strcmp(cmd, "\n") == 0) {
+			for(int i = 1; i <= jobCount; i++) {
+				if(!jobs[i].alive) {
+					printf("[%d]- Done\t%s\n", jobs[i].jid, jobs[i].cmdLine);
+				}
+			}
+			continue;
+		}
+
 		if(strcmp(cmd, "") != 0) {
 			cmd[strlen(cmd) - 1] = '\0';
 		}
@@ -123,11 +149,11 @@ int main(int argc, char **argv) {
 			for(int i = 1; i <= jobCount; i++) {
 				if(jobs[i].alive) {
 					printf("[%d]", jobs[i].jid);
-					if(jobs[i].fg) {
-						printf("+ ");
+					if(i < jobCount) {
+						printf("- ");
 					}
 					else {
-						printf("- ");
+						printf("+ ");
 					}
 
 					if(jobs[i].state == RUNNING) {
@@ -146,6 +172,11 @@ int main(int argc, char **argv) {
 				perror("pipe");
 				exit(EXIT_FAILURE);
 			}
+			if(cmd[strlen(cmd) - 1] == '&') {
+				bg = 1;
+				cmd[strlen(cmd) - 1] = '\0';
+			}
+
 			char **myargs = (char**) malloc(sizeof(char*) * 10);
 			char **otherargs = (char**) malloc(sizeof(char*) * 10);
 			int i = 0;
@@ -175,11 +206,6 @@ int main(int argc, char **argv) {
 					p = strtok(NULL, " ");
 					fp1 = fopen(p, "w");
 					errorRedirect1 = fileno(fp1);
-					addargs1 = 0;
-				}
-
-				else if(*p == '&') {
-					bg = 1;
 					addargs1 = 0;
 				}
 
@@ -259,20 +285,17 @@ int main(int argc, char **argv) {
 					}
 				}
 				else {
-					job_t job;				// add job to struct list
-					job.pid = cpid;
-					job.jid = ++jobCount;
 					if(bg) {
+						job_t job;				// add job to struct list
+						job.pid = cpid;
+						job.jid = ++jobCount;
 						job.fg = 0;
+						job.alive = 1;
+						job.state = RUNNING;
+						strcpy(job.cmdLine, cmdCopy);
+						jobs[jobCount] = job;
 					}
-					else {
-						job.fg = 1;
-					}
-					job.alive = 1;
-					job.state = RUNNING;
-					strcpy(job.cmdLine, cmdCopy);
-					jobs[jobCount] = job;
-
+					
 					if(pipeFlag) {
 						if(run2) {
 							cpid2 = fork();
@@ -307,7 +330,7 @@ int main(int argc, char **argv) {
 									printf("Signal(SIGCHLD) error\n");
 								}
 								if(!bg) {
-									waitpid(cpid, &status, WUNTRACED | WCONTINUED);
+									waitpid(cpid2, &status, WUNTRACED | WCONTINUED);
 								}
 							}
 						}
